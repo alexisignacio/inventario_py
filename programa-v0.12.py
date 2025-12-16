@@ -7,8 +7,9 @@
 # 3) Agregar productos
 # 4) Editar productos (nombre / precio / stock)
 # 5) Eliminar productos
-# 6) Generar un reporte (pendiente de implementar)
-#
+# 6) Registrar venta 
+# 7) Generar un reporte 
+# 8) salir
 # Los datos se guardan en un archivo CSV llamado "inventario.csv"
 # con las columnas: codigo, nombre, precio, stock
 # ==============================
@@ -21,8 +22,7 @@ from typing import List, Dict, Optional
 ARCHIVO_CSV = "inventario.csv"
 
 # Columnas que usará el CSV (encabezados)
-CAMPOS = ["codigo", "nombre", "precio", "stock"]
-
+CAMPOS = ["codigo", "nombre", "precio", "stock","vendidos"]
 
 # ------------------------------
 # MENÚ PRINCIPAL
@@ -34,11 +34,12 @@ def mostrar_menu():
     print("1. Mostrar Inventario")
     print("2. Buscar producto")
     print("3. Agregar producto")
-    print("4. Editar información de un producto")
+    print("4. Editar producto")
     print("5. Eliminar producto")
-    print("6. Generar reporte")
-    print("7. Salir")
-
+    print("6. Registrar venta")
+    print("7. Generar reporte")
+    print("8. Salir")
+    print("=== === === === === === ===")
 
 def main():
     """
@@ -52,6 +53,7 @@ def main():
     menu_abierto = True
     while menu_abierto:
         mostrar_menu()
+        print("\n")
         opcion = input("Introduce la opción:")
 
         # match/case requiere
@@ -67,14 +69,14 @@ def main():
             case '5':
                 eliminar_producto(inventario)
             case '6':
-                # falta crear esta funcion
-                generar_reporte()
+                registrar_venta(inventario)
             case '7':
+                generar_reporte(inventario)
+            case '8':
                 print('Salir')
                 menu_abierto = False
             case _:
                 print("Vuelva a introducir una opción")
-
 
 # ------------------------------
 # LECTURA Y ESCRITURA DEL CSV
@@ -112,8 +114,13 @@ def cargar_inventario():
 
             # Convertimos precio a float
             try:
-                precio_txt = str(row.get("precio", "")).replace("$", "").replace(".", "").replace(",", ".")
-                row["precio"] = float(precio_txt) if precio_txt else 0.0
+                precio_raw = str(row.get("precio", "")).strip().replace("$", "").replace(" ", "")
+                if "," in precio_raw and "." not in precio_raw:
+                    precio_raw = precio_raw.replace(",", ".")
+                elif "." in precio_raw and "," in precio_raw:
+                    precio_raw = precio_raw.replace(".", "").replace(",", ".")
+
+                row["precio"] = float(precio_raw) if precio_raw else 0.0
             except ValueError:
                 row["precio"] = 0.0
 
@@ -123,6 +130,10 @@ def cargar_inventario():
             except ValueError:
                 row["stock"] = 0
 
+            try:
+                row["vendidos"] = int(row.get("vendidos",0))
+            except ValueError:
+                row["vendidos"] = 0
             # Aseguramos que exista "codigo"
             if "codigo" not in row:
                 row["codigo"] = ""
@@ -130,7 +141,6 @@ def cargar_inventario():
             inventario.append(row)
 
     return inventario
-
 
 def guardar_inventario(inventario):
     """
@@ -151,12 +161,13 @@ def guardar_inventario(inventario):
                     "codigo": p["codigo"],
                     "nombre": p["nombre"],
                     "precio": p["precio"],
-                    "stock": p["stock"]
+                    "stock": p["stock"],
+                    "vendidos": p.get("vendidos",0)
                 })
         return True
-    except Exception:
+    except Exception as e:
+        print("ERROR al guardar:", e)
         return False
-
 
 # ------------------------------
 # MOSTRAR / BUSCAR
@@ -171,19 +182,19 @@ def mostrar_inventario(inventario):
 
     print("\n--- Inventario ---")
     print("\n" + "-" * 60)
-    print(f"{'CÓDIGO':<10} {'NOMBRE':<20} {'PRECIO':<10} {'STOCK':<10}")
+    print(f"{'CÓDIGO':<10} {'NOMBRE':<20} {'PRECIO':<10} {'STOCK':<10} {'VENDIDOS':<10}")
     print("-" * 60)
 
     for producto in inventario:
         print(
             f"{producto['codigo']:<10} "
             f"{producto['nombre']:<20} "
-            f"{producto['precio']:<10} "
-            f"{producto['stock']:<10}"
+            f"{producto['precio']:<10.2f} "
+            f"{producto['stock']:<10} "
+            f"{producto['vendidos']:<10} "
         )
 
     print("-" * 60)
-
 
 def buscar_producto(inventario):
     """
@@ -222,7 +233,6 @@ def buscar_producto(inventario):
 
     print("-" * 60)
 
-
 # ------------------------------
 # AGREGAR / EDITAR / ELIMINAR
 # ------------------------------
@@ -251,7 +261,7 @@ def agregar_producto(inventario):
         print("Error: precio debe ser número y stock debe ser entero.")
         return
 
-    producto = {"codigo": pcodigo, "nombre": nombre, "precio": precio, "stock": stock}
+    producto = {"codigo": pcodigo, "nombre": nombre, "precio": precio, "stock": stock, "vendidos": 0}
     inventario.append(producto)
 
     ok = guardar_inventario(inventario)
@@ -260,7 +270,6 @@ def agregar_producto(inventario):
         print("Producto agregado y guardado correctametn")
     else:
         print("Error al guardar producto en el inventario ")
-
 
 def eliminar_producto(inventario):
     """
@@ -278,7 +287,6 @@ def eliminar_producto(inventario):
             return
 
     print("Producto no encontrado")
-
 
 def editar_producto(inventario):
     """
@@ -350,16 +358,107 @@ def editar_producto(inventario):
 
     print("Producto no encontrado ")
 
+def registrar_venta(inventario):
+    print("\n--- Registrar venta ---")
+    codigo = input("Ingrese código: ").strip()
 
-# ------------------------------
-# REPORTE (pendiente)
-# ------------------------------
-def generar_reporte():
-    """
-    Genera un reporte del inventario.
-    """
-    print("Ten tu reporte")
+    for producto in inventario:
+        if producto["codigo"] == codigo:
+            print(f"Producto: {producto['nombre']} | Stock actual: {producto['stock']}")
 
+            try:
+                cantidad = int(input("Cantidad vendida: ").strip())
+            except ValueError:
+                print("Cantidad inválida.")
+                return
+
+            if cantidad <= 0:
+                print("La cantidad debe ser mayor a 0.")
+                return
+
+            if cantidad > producto["stock"]:
+                print("No hay stock suficiente.")
+                return
+
+            producto["stock"] -= cantidad
+            producto["vendidos"] = producto.get("vendidos", 0) + cantidad
+
+            if guardar_inventario(inventario):
+                print("Venta registrada ")
+            else:
+                print("Error al guardar ")
+            return
+
+    print("Producto no encontrado")
+    
+# ------------------------------
+# REPORTE 
+# ------------------------------
+
+def generar_reporte(inventario):
+    print("\n=== REPORTE DE INVENTARIO ===")
+
+    if len(inventario) == 0:
+        print("No hay productos registrados.")
+        return
+
+    total_productos = len(inventario)
+    total_unidades_stock = 0
+    valor_total_inventario = 0
+    total_unidades_vendidas = 0
+    valor_total_vendido = 0
+
+    for p in inventario:
+        total_unidades_stock += p["stock"]
+        valor_total_inventario += p["stock"] * p["precio"]
+
+        vendidos = p.get("vendidos", 0)
+        total_unidades_vendidas += vendidos
+        valor_total_vendido += vendidos * p["precio"]
+
+    # Resumen general
+    print("\n--- Resumen General ---")
+    print(f"Total de productos distintos : {total_productos}")
+    print(f"Total de unidades en stock   : {total_unidades_stock}")
+    print(f"Valor total del inventario   : ${valor_total_inventario:.2f}")
+    print(f"Total de unidades vendidas   : {total_unidades_vendidas}")
+    print(f"Valor total vendido          : ${valor_total_vendido:.2f}")
+
+    # Productos con stock bajo
+    umbral = 5
+    print(f"\n--- Productos con stock bajo (<= {umbral}) ---")
+    stock_bajo = [p for p in inventario if p["stock"] <= umbral]
+
+    if len(stock_bajo) == 0:
+        print("No hay productos con stock bajo.")
+    else:
+        print("-" * 60)
+        print(f"{'CÓDIGO':<10} {'NOMBRE':<20} {'STOCK':<10}")
+        print("-" * 60)
+        for p in stock_bajo:
+            print(f"{p['codigo']:<10} {p['nombre']:<20} {p['stock']:<10}")
+        print("-" * 60)
+
+    # Top productos más vendidos
+    print("\n--- Top 3 productos más vendidos ---")
+    top = sorted(inventario, key=lambda x: x.get("vendidos", 0), reverse=True)[:3]
+
+    print("-" * 80)
+    print(f"{'CÓDIGO':<10} {'NOMBRE':<20} {'VENDIDOS':<10} {'TOTAL VENDIDO ($)':<20}")
+    print("-" * 80)
+
+    for p in top:
+        vendidos = p.get("vendidos", 0)
+        total_vendido = vendidos * p.get("precio", 0)
+
+        print(
+            f"{p['codigo']:<10} "
+            f"{p['nombre']:<20} "
+            f"{vendidos:<10} "
+            f"{total_vendido:<20.2f}"
+        )
+
+    print("-" * 80)
 
 # ------------------------------
 # LIMPIAR PANTALLA (opcional)
@@ -367,7 +466,6 @@ def generar_reporte():
 def limpiar():
     """Limpia la consola."""
     os.system("cls" if os.name == "nt" else "clear")
-
 
 # Ejecutar programa
 main()
