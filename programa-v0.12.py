@@ -17,6 +17,7 @@
 import os
 import csv
 from typing import List, Dict, Optional 
+import time
 
 # Nombre del archivo CSV que guarda el inventario
 ARCHIVO_CSV = "inventario.csv"
@@ -33,7 +34,7 @@ def mostrar_menu():
     print("=== SISTEMA DE INVENTARIO ===")
     print("1. Mostrar Inventario")
     print("2. Buscar producto")
-    print("3. Agregar producto")
+    print("3. Agregar producto nuevo")
     print("4. Editar producto")
     print("5. Eliminar producto")
     print("6. Registrar venta")
@@ -76,23 +77,12 @@ def main():
 
         # 2. Si se seleccionó una función válida, entramos al ciclo de "Reintento"
         if funcion_actual:
-            reintentar = True
-            while reintentar:
+            while True:
                 limpiar()
-                # Ejecutamos la función seleccionada pasando el inventario
-                funcion_actual(inventario)
-                
-                print("\n" + "-"*60)
-                print("  Presiona [Enter] para volver al Menú")
-                print("  Escribe [Espacio] y [Enter] para Repetir esta acción")
-                
-                respuesta = input("> ")
-                
-                if respuesta == " ":
-                    continue # Vuelve al inicio del while reintentar
-                else:
-                    reintentar = False # Sale del while y vuelve al menú principal
+                repetir = funcion_actual(inventario)
+                if not repetir:
                     limpiar()
+                    break
 
 # ------------------------------
 # LECTURA Y ESCRITURA DEL CSV
@@ -212,6 +202,8 @@ def mostrar_inventario(inventario):
 
     print("-" * 60)
 
+    return decidir_continuar("volver a mostrar el inventario")
+
 def buscar_producto(inventario):
     """
     Busca productos por:
@@ -249,43 +241,78 @@ def buscar_producto(inventario):
 
     print("-" * 60)
 
+    return decidir_continuar("volver a buscar producto")
+
 # ------------------------------
 # AGREGAR / EDITAR / ELIMINAR
 # ------------------------------
 def agregar_producto(inventario):
-    """
-    Agrega un producto al inventario:
-    - Pide código, nombre, precio, stock.
-    - Valida que el código no exista.
-    - Guarda cambios en CSV.
-    """
-    print("\n--- Agregar producto ---")
-    pcodigo = input("codigo: ").strip()
+    while True:
+        print("\n--- Agregar producto ---")
 
-    # Validar que no exista el codigo
-    for p in inventario:
-        if p["codigo"] == pcodigo:
-            print("Error: ya existe un producto con ese codigo.")
-            return
+        pcodigo = input("Código: ").strip()
+        if any(p["codigo"] == pcodigo for p in inventario):
+            print("Error: ya existe un producto con ese código.")
+            continue
 
-    nombre = input("Nombre: ").strip()
+        nombre = input("Nombre: ").strip()
 
-    try:
-        precio = float(input("Precio: ").strip())
-        stock = int(input("Stock: ").strip())
-    except ValueError:
-        print("Error: precio debe ser número y stock debe ser entero.")
-        return
+        while True:
+            try:
+                precio = float(input("Precio: ").strip())
+                if precio < 0:
+                    raise ValueError
+                break
+            except ValueError:
+                print("Error: el precio debe ser un número positivo.")
 
-    producto = {"codigo": pcodigo, "nombre": nombre, "precio": precio, "stock": stock, "vendidos": 0}
-    inventario.append(producto)
+        while True:
+            try:
+                stock = int(input("Stock: ").strip())
+                if stock < 0:
+                    raise ValueError
+                break
+            except ValueError:
+                print("Error: el stock debe ser un entero positivo.")
 
-    ok = guardar_inventario(inventario)
+        print("\nProducto a agregar:")
+        print(f"  Código : {pcodigo}")
+        print(f"  Nombre : {nombre}")
+        print(f"  Precio : {precio}")
+        print(f"  Stock  : {stock}")
 
-    if ok:
-        print("Producto agregado y guardado correctametn")
-    else:
-        print("Error al guardar producto en el inventario ")
+        confirmar = input("\n¿Confirmar agregado? (s/n): ").strip().lower()
+
+        if confirmar != "s":
+            print("\nPresiona [Enter] para volver al menú")
+            print("Escribe [Espacio] y [Enter] para volver a ingresar datos")
+            respuesta = input("> ")
+
+            if respuesta == " ":
+                limpiar()
+                continue
+            else:
+                return False   # ← VOLVER AL MENÚ
+
+        producto = {
+            "codigo": pcodigo,
+            "nombre": nombre,
+            "precio": precio,
+            "stock": stock,
+            "vendidos": 0
+        }
+
+        inventario.append(producto)
+
+        if guardar_inventario(inventario):
+            print("Producto agregado y guardado correctamente.")
+            time.sleep(1)
+        else:
+            print("Error al guardar el producto.")
+            time.sleep(1)
+
+        return False  # ← después de agregar, volver al menú
+
 
 def eliminar_producto(inventario):
     """
@@ -300,9 +327,11 @@ def eliminar_producto(inventario):
             inventario.remove(producto)
             guardar_inventario(inventario)
             print("Producto eliminado del inventario")
-            return
+            time.sleep(1)
+            return decidir_continuar("volver a borrar producto")
 
     print("Producto no encontrado")
+    return decidir_continuar("volver a borrar producto")
 
 def editar_producto(inventario):
     """
@@ -370,9 +399,11 @@ def editar_producto(inventario):
                 print("Producto actualizado y guardado correctamente ")
             else:
                 print("Error al guardar los cambios")
-            return
+            return decidir_continuar("volver a editar producto")
 
     print("Producto no encontrado ")
+    time.sleep(1)
+    return decidir_continuar("volver a editar producto")
 
 def registrar_venta(inventario):
     print("\n--- Registrar venta ---")
@@ -386,14 +417,17 @@ def registrar_venta(inventario):
                 cantidad = int(input("Cantidad vendida: ").strip())
             except ValueError:
                 print("Cantidad inválida.")
+                time.sleep(1)
                 return
 
             if cantidad <= 0:
                 print("La cantidad debe ser mayor a 0.")
+                time.sleep(1)
                 return
 
             if cantidad > producto["stock"]:
                 print("No hay stock suficiente.")
+                time.sleep(1)
                 return
 
             producto["stock"] -= cantidad
@@ -401,8 +435,11 @@ def registrar_venta(inventario):
 
             if guardar_inventario(inventario):
                 print("Venta registrada ")
+                time.sleep(1)
             else:
                 print("Error al guardar ")
+                time.sleep(1)
+
             return
 
     print("Producto no encontrado")
@@ -476,12 +513,23 @@ def generar_reporte(inventario):
 
     print("-" * 80)
 
+    return decidir_continuar("volver a generar reporte")
+
 # ------------------------------
 # LIMPIAR PANTALLA (opcional)
 # ------------------------------
 def limpiar():
     """Limpia la consola."""
     os.system("cls" if os.name == "nt" else "clear")
+
+# ------------------------------
+# Volver al menu o repetir
+# ------------------------------
+def decidir_continuar(mensaje_repetir="Repetir esta acción"):
+    print("\n" + "-" * 60)
+    print("Presiona [Enter] para volver al menú")
+    print(f"Escribe [Espacio] y [Enter] para {mensaje_repetir}")
+    return input("> ") == " "
 
 # Ejecutar programa
 main()
