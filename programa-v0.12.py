@@ -55,28 +55,44 @@ def main():
         mostrar_menu()
         print("\n")
         opcion = input("Introduce la opción:")
-
-        # match/case requiere
+        
+        # Identificamos qué función vamos a ejecutar
+        funcion_actual = None
+        
         match opcion:
-            case '1':
-                mostrar_inventario(inventario)
-            case '2':
-                buscar_producto(inventario)
-            case '3':
-                agregar_producto(inventario)
-            case '4':
-                editar_producto(inventario)
-            case '5':
-                eliminar_producto(inventario)
-            case '6':
-                registrar_venta(inventario)
-            case '7':
-                generar_reporte(inventario)
-            case '8':
+            case '1': funcion_actual = mostrar_inventario
+            case '2': funcion_actual = buscar_producto
+            case '3': funcion_actual = agregar_producto
+            case '4': funcion_actual = editar_producto
+            case '5': funcion_actual = eliminar_producto
+            case '6': funcion_actual = registrar_venta
+            case '7': funcion_actual = generar_reporte
+            case '8': 
                 print('Salir')
                 menu_abierto = False
             case _:
-                print("Vuelva a introducir una opción")
+                print("Opción inválida")
+                input("Enter para continuar")
+
+        # 2. Si se seleccionó una función válida, entramos al ciclo de "Reintento"
+        if funcion_actual:
+            reintentar = True
+            while reintentar:
+                limpiar()
+                # Ejecutamos la función seleccionada pasando el inventario
+                funcion_actual(inventario)
+                
+                print("\n" + "-"*60)
+                print("  Presiona [Enter] para volver al Menú")
+                print("  Escribe [Espacio] y [Enter] para Repetir esta acción")
+                
+                respuesta = input("> ")
+                
+                if respuesta == " ":
+                    continue # Vuelve al inicio del while reintentar
+                else:
+                    reintentar = False # Sale del while y vuelve al menú principal
+                    limpiar()
 
 # ------------------------------
 # LECTURA Y ESCRITURA DEL CSV
